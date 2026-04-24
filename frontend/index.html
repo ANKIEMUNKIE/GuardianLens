@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GuardianLens — AI Document Authentication | SDG 16</title>
+  <meta name="description" content="AI-powered forgery detection for IDs, prescriptions, certificates and contracts. Get an instant Trust Score backed by Gemini Vision. Detect forged documents in under 5 seconds." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0a0e1a',
+            surface: '#111827',
+            card: '#161d2e',
+            cyan: '#00d4ff',
+            green: '#00ff88',
+            yellow: '#ffd600',
+            red: '#ff4d6d',
+            textPrimary: '#e2e8f0',
+            textMuted: '#64748b',
+            border: '#1e2d45',
+          },
+          fontFamily: {
+            mono: ['"Space Mono"', 'monospace'],
+            sans: ['"DM Sans"', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body { background-color: #0a0e1a; color: #e2e8f0; font-family: 'DM Sans', sans-serif; margin: 0; }
+
+    /* Scan-line animation */
+    @keyframes scanline {
+      0% { transform: translateY(-100%); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(400%); opacity: 0; }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(0,212,255,0.15); }
+      50% { box-shadow: 0 0 40px rgba(0,212,255,0.4); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .scanline-bar {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+      animation: scanline 2.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .upload-zone {
+      border: 2px dashed rgba(0,212,255,0.4);
+      transition: border-color 0.3s, box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .upload-zone:hover {
+      border-color: rgba(0,212,255,0.9);
+      box-shadow: 0 0 40px rgba(0,212,255,0.2), inset 0 0 60px rgba(0,212,255,0.05);
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    .upload-zone:hover .scanline-bar {
+      display: block;
+    }
+    .upload-zone .scanline-bar {
+      display: none;
+    }
+
+    .hero-animate { animation: fadeInUp 0.8s ease both; }
+    .hero-animate-2 { animation: fadeInUp 0.8s ease 0.15s both; }
+    .hero-animate-3 { animation: fadeInUp 0.8s ease 0.3s both; }
+    .hero-animate-4 { animation: fadeInUp 0.8s ease 0.45s both; }
+    .hero-animate-5 { animation: fadeInUp 0.8s ease 0.6s both; }
+
+    .nav-link {
+      color: #64748b;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: #e2e8f0; }
+
+    .btn-primary {
+      background: #00d4ff;
+      color: #0a0e1a;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 24px;
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 30px rgba(0,212,255,0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: #00d4ff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      border: 1px solid #00d4ff;
+      border-radius: 99px;
+      padding: 8px 20px;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .btn-ghost:hover {
+      background: rgba(0,212,255,0.08);
+      box-shadow: 0 0 20px rgba(0,212,255,0.2);
+    }
+
+    .stat-pill {
+      background: rgba(0,212,255,0.08);
+      border: 1px solid rgba(0,212,255,0.25);
+      border-radius: 99px;
+      padding: 8px 20px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: #00d4ff;
+    }
+
+    .how-card {
+      background: #161d2e;
+      border: 1px solid #1e2d45;
+      border-radius: 16px;
+      padding: 28px 24px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .how-card:hover {
+      border-color: rgba(0,212,255,0.3);
+      box-shadow: 0 0 24px rgba(0,212,255,0.08);
+    }
+
+    .cursor-blink::after {
+      content: '|';
+      animation: blink 1s infinite;
+      color: #00d4ff;
+    }
+
+    .top-accent {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: #00d4ff;
+      z-index: 1001;
+    }
+
+    .sdg-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #00d4ff;
+      border-radius: 99px;
+      padding: 6px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: #00d4ff;
+      letter-spacing: 0.05em;
+    }
+
+    /* File drag highlight */
+    .upload-zone.dragging {
+      border-color: #00d4ff;
+      box-shadow: 0 0 50px rgba(0,212,255,0.3);
+      background: rgba(0,212,255,0.04);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top cyan accent line -->
+<div class="top-accent"></div>
+
+<!-- ===== STICKY HEADER ===== -->
+<header id="main-header" style="position:fixed;top:2px;left:0;right:0;z-index:1000;height:64px;background:rgba(10,14,26,0.92);backdrop-filter:blur(12px);border-bottom:1px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;padding:0 48px;">
+  <!-- Logo -->
+  <a href="index.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 2L4 6v8c0 5.5 4.3 10.7 10 12 5.7-1.3 10-6.5 10-12V6L14 2z" stroke="#00d4ff" stroke-width="2" fill="rgba(0,212,255,0.08)"/>
+      <path d="M10 14l3 3 6-6" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:#00d4ff;letter-spacing:-0.02em;">GuardianLens</span>
+  </a>
+  <!-- Nav -->
+  <nav style="display:flex;align-items:center;gap:32px;">
+    <a href="#how-it-works" class="nav-link">How It Works</a>
+    <a href="#api" class="nav-link">API</a>
+    <a href="dashboard.html" class="nav-link">Dashboard</a>
+    <a href="#signin" class="btn-ghost" id="signin-btn">Sign In</a>
+  </nav>
+</header>
+
+<!-- ===== HERO SECTION ===== -->
+<main style="padding-top:66px;">
+  <section style="min-height:calc(100vh - 66px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px 60px;text-align:center;">
+
+    <!-- SDG Badge -->
+    <div class="hero-animate" style="margin-bottom:28px;">
+      <span class="sdg-badge">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="#00d4ff"><circle cx="6" cy="6" r="5" stroke="#00d4ff" stroke-width="1.5" fill="none"/><path d="M6 1v5l3 2" stroke="#00d4ff" stroke-width="1.2" stroke-linecap="round"/></svg>
+        SDG 16 · Digital Asset Protection
+      </span>
+    </div>
+
+    <!-- H1 -->
+    <h1 class="hero-animate-2" style="font-family:'Space Mono',monospace;font-weight:700;font-size:clamp(36px,5vw,64px);line-height:1.1;margin:0 0 20px;max-width:900px;">
+      <span style="color:#e2e8f0;">Is This Document Real?</span><br/>
+      <span style="color:#00d4ff;" class="cursor-blink">Find Out in 5 Seconds.</span>
+    </h1>
+
+    <!-- Subheadline -->
+    <p class="hero-animate-3" style="font-family:'DM Sans',sans-serif;font-size:18px;color:#64748b;max-width:620px;line-height:1.7;margin:0 0 36px;">
+      AI-powered forgery detection for IDs, prescriptions, certificates and contracts. Get an instant Trust Score backed by Gemini Vision.
+    </p>
+
+    <!-- Stat pills -->
+    <div class="hero-animate-4" style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:56px;">
+      <span class="stat-pill">98.3% Detection Accuracy</span>
+      <span class="stat-pill">&lt; 5s Analysis Time</span>
+      <span class="stat-pill">50+ Document Types</span>
+    </div>
+
+    <!-- Upload Zone -->
+    <div class="hero-animate-5" style="width:100%;max-width:680px;">
+      <div id="upload-zone" class="upload-zone" style="background:#161d2e;border-radius:16px;padding:48px 40px;cursor:pointer;"
+        ondragover="event.preventDefault();this.classList.add('dragging')"
+        ondragleave="this.classList.remove('dragging')"
+        ondrop="handleDrop(event)">
+        <!-- Scanline -->
+        <div class="scanline-bar"></div>
+        <!-- Upload icon -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;pointer-events:none;">
+          <svg id="upload-icon" width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="52" height="52" rx="14" stroke="#00d4ff" stroke-width="1.5" fill="rgba(0,212,255,0.05)"/>
+            <path d="M28 36V22M28 22l-6 6M28 22l6 6" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M18 38h20" stroke="#00d4ff" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <p id="upload-label" style="font-family:'DM Sans',sans-serif;font-size:18px;color:#e2e8f0;margin:0 0 8px;font-weight:500;">Drop your document here</p>
+            <p style="font-family:'Space Mono',monospace;font-size:12px;color:#64748b;margin:0;letter-spacing:0.05em;">JPG · PNG · PDF · Max 10MB</p>
+          </div>
+        </div>
+        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf,.webp" style="display:none;" onchange="handleFile(this.files[0])"/>
+      </div>
+
+      <!-- Doc Type Selector -->
+      <div style="margin-top:16px;">
+        <select id="doc-type-select" style="width:100%;background:#111827;border:1px solid #1e2d45;border-radius:10px;padding:12px 16px;font-family:'Space Mono',monospace;font-size:12px;color:#64748b;outline:none;cursor:pointer;transition:border-color 0.2s;appearance:none;-webkit-appearance:none;">
+          <option value="other">Document Type: Auto-detect (recommended)</option>
+          <option value="india_aadhaar">🇮🇳 Aadhaar Card</option>
+          <option value="india_pan">🇮🇳 PAN Card</option>
+          <option value="kenya_national_id">🇰🇪 Kenyan National ID</option>
+          <option value="us_passport">🇺🇸 US Passport</option>
+          <option value="medical_prescription_india">💊 Medical Prescription (India)</option>
+          <option value="academic_certificate_generic">🎓 Academic Certificate</option>
+          <option value="contract">📋 Legal Contract</option>
+        </select>
+      </div>
+
+      <!-- Authenticate Button -->
+      <button id="auth-btn" class="btn-primary" onclick="handleAuthenticate()" style="width:100%;margin-top:12px;font-size:14px;letter-spacing:0.1em;padding:16px;">
+        AUTHENTICATE DOCUMENT
+      </button>
+
+      <p style="font-family:'Space Mono',monospace;font-size:11px;color:#64748b;margin-top:12px;letter-spacing:0.03em;">
+        🔒 Encrypted · Auto-deleted after 90 days · Free to use
+      </p>
+    </div>
+
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section id="how-it-works" style="padding:80px 48px;max-width:1200px;margin:0 auto;">
+    <p style="font-family:'Space Mono',monospace;font-size:11px;color:#64748b;letter-spacing:0.2em;text-align:center;margin-bottom:48px;">HOW IT WORKS</p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+
+      <div class="how-card">
+        <p style="font-family:'Space Mono',monospace;font-size:12px;color:#00d4ff;margin:0 0 16px;letter-spacing:0.05em;">01</p>
+        <div style="font-size:28px;margin-bottom:12px;">📤</div>
+        <h3 style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 8px;">Upload</h3>
+        <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;line-height:1.6;">Drag and drop any document up to 10MB — JPG, PNG, or PDF.</p>
+      </div>
+
+      <div class="how-card">
+        <p style="font-family:'Space Mono',monospace;font-size:12px;color:#00d4ff;margin:0 0 16px;letter-spacing:0.05em;">02</p>
+        <div style="font-size:28px;margin-bottom:12px;">🔬</div>
+        <h3 style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 8px;">AI Scan</h3>
+        <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;line-height:1.6;">7-stage forensic pipeline analyzes every pixel with ELA heatmapping.</p>
+      </div>
+
+      <div class="how-card">
+        <p style="font-family:'Space Mono',monospace;font-size:12px;color:#00d4ff;margin:0 0 16px;letter-spacing:0.05em;">03</p>
+        <div style="font-size:28px;margin-bottom:12px;">🎯</div>
+        <h3 style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 8px;">Trust Score</h3>
+        <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;line-height:1.6;">0–100 Trust Score with 5-dimension forensic breakdown and anomaly list.</p>
+      </div>
+
+      <div class="how-card">
+        <p style="font-family:'Space Mono',monospace;font-size:12px;color:#00d4ff;margin:0 0 16px;letter-spacing:0.05em;">04</p>
+        <div style="font-size:28px;margin-bottom:12px;">📜</div>
+        <h3 style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#e2e8f0;margin:0 0 8px;">Certificate</h3>
+        <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;line-height:1.6;">Download a cryptographically signed PDF certificate via Google Cloud KMS.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== API SECTION ===== -->
+  <section id="api" style="padding:80px 48px;max-width:1200px;margin:0 auto;">
+    <div style="background:#161d2e;border:1px solid #1e2d45;border-radius:16px;padding:48px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:32px;">
+      <div>
+        <p style="font-family:'Space Mono',monospace;font-size:11px;color:#64748b;letter-spacing:0.2em;margin:0 0 12px;">DEVELOPER API</p>
+        <h2 style="font-family:'Space Mono',monospace;font-size:28px;font-weight:700;color:#e2e8f0;margin:0 0 12px;">Integrate in 5 Minutes</h2>
+        <p style="font-family:'DM Sans',sans-serif;font-size:15px;color:#64748b;margin:0;max-width:480px;line-height:1.7;">POST to <code style="color:#00d4ff;background:rgba(0,212,255,0.08);padding:2px 8px;border-radius:4px;font-family:'Space Mono',monospace;">/api/verify</code> and get JSON back with trust score, verdict, and anomaly list. Rate limited: 100 calls/day free.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start;">
+        <div style="background:#0a0e1a;border:1px solid #1e2d45;border-radius:12px;padding:20px 24px;font-family:'Space Mono',monospace;font-size:12px;color:#64748b;min-width:320px;">
+          <span style="color:#00d4ff;">POST</span> /api/verify<br/>
+          <span style="color:#64748b;">X-API-Key:</span> <span style="color:#00ff88;">your-api-key</span><br/>
+          <span style="color:#64748b;">Content-Type:</span> multipart/form-data<br/><br/>
+          <span style="color:#00d4ff;">→ 200</span> <span style="color:#e2e8f0;">trust_score: 82, verdict: AUTHENTIC</span>
+        </div>
+        <button class="btn-primary" style="align-self:stretch;text-align:center;" onclick="alert('API docs coming soon!')">
+          VIEW API DOCS
+        </button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer style="border-top:1px solid #1e2d45;padding:32px 48px;text-align:center;margin-top:40px;">
+  <p style="font-family:'Space Mono',monospace;font-size:12px;color:#64748b;margin:0 0 8px;letter-spacing:0.05em;">
+    GuardianLens · Google Solution Challenge 2026 · SDG 16
+  </p>
+  <p style="font-family:'Space Mono',monospace;font-size:11px;color:#374151;margin:0;letter-spacing:0.03em;">
+    AI-powered document authentication · Powered by Gemini Vision
+  </p>
+</footer>
+
+<script>
+  const API_BASE = 'http://localhost:8000';
+  let selectedFile = null;
+
+  // Upload zone click
+  document.getElementById('upload-zone').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+
+  function handleFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    const label = document.getElementById('upload-label');
+    label.textContent = `✓ ${file.name}`;
+    label.style.color = '#00ff88';
+    document.getElementById('upload-icon').style.display = 'none';
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('dragging');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }
+
+  async function handleAuthenticate() {
+    if (!selectedFile) {
+      // No file selected — flash the upload zone
+      const zone = document.getElementById('upload-zone');
+      zone.style.borderColor = '#ff4d6d';
+      zone.style.boxShadow = '0 0 30px rgba(255,77,109,0.3)';
+      setTimeout(() => {
+        zone.style.borderColor = '';
+        zone.style.boxShadow = '';
+      }, 1200);
+      document.getElementById('upload-label').textContent = 'Please select a document first';
+      document.getElementById('upload-label').style.color = '#ff4d6d';
+      return;
+    }
+
+    const btn = document.getElementById('auth-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ ANALYZING DOCUMENT...';
+    btn.style.background = 'rgba(0,212,255,0.3)';
+    btn.style.cursor = 'not-allowed';
+
+    // Show scan animation on upload zone
+    const scanline = document.querySelector('.scanline-bar');
+    if (scanline) { scanline.style.display = 'block'; }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('doc_type', document.getElementById('doc-type-select').value || 'other');
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s — Gemini can take 30-60s
+
+      const response = await fetch(`${API_BASE}/api/verify`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(err.detail || `Server error ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Store result in sessionStorage for result page
+      sessionStorage.setItem('scan_result', JSON.stringify(data));
+
+      // Redirect to result page
+      window.location.href = `result.html?scan_id=${encodeURIComponent(data.scan_id)}`;
+
+    } catch (err) {
+      console.error('Verification failed:', err);
+
+      btn.disabled = false;
+      btn.textContent = 'AUTHENTICATE DOCUMENT';
+      btn.style.background = '#00d4ff';
+      btn.style.cursor = 'pointer';
+      if (scanline) { scanline.style.display = 'none'; }
+
+      // Determine user-friendly error message
+      let errMsg = err.message;
+      if (err.name === 'AbortError') {
+        errMsg = 'Analysis timed out. Try a smaller/simpler image or wait and retry.';
+      } else if (err.message.toLowerCase().includes('failed to fetch') || err.message.includes('NetworkError')) {
+        errMsg = 'Cannot reach backend. Make sure: cd backend && python run.py';
+      }
+
+      // ── Reset upload state so user can pick a new file ──────────────
+      selectedFile = null;
+      const fileInput = document.getElementById('file-input');
+      if (fileInput) fileInput.value = '';  // clear so same file can be re-selected
+
+      // Show error + retry instruction in upload zone
+      const label = document.getElementById('upload-label');
+      const icon  = document.getElementById('upload-icon');
+      label.innerHTML = `<span style="color:#ff4d6d;">❌ ${errMsg}</span><br><span style="font-size:12px;color:#64748b;margin-top:6px;display:block;">👆 Click here to select a new file and try again</span>`;
+      label.style.color = '#ff4d6d';
+      if (icon) icon.style.display = 'block';
+
+      // Re-enable upload zone click to file picker
+      const zone = document.getElementById('upload-zone');
+      zone.style.borderColor = 'rgba(255,77,109,0.5)';
+      setTimeout(() => { zone.style.borderColor = ''; }, 3000);
+    }
+  }
+
+  // Allow pressing Enter on the upload zone
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.activeElement.id === 'upload-zone') {
+      handleAuthenticate();
+    }
+  });
+</script>
+
+</body>
+</html>
+

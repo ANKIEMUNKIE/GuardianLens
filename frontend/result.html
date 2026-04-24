@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analysis Results — GuardianLens</title>
+  <meta name="description" content="Document analysis results — Trust Score, forensic breakdown, and authenticity certificate from GuardianLens AI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { background-color: #0a0e1a; color: #e2e8f0; font-family: 'DM Sans', sans-serif; margin: 0; }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes barFill { from { width: 0%; } }
+    @keyframes glowPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(0,255,136,0.2); }
+      50% { box-shadow: 0 0 40px rgba(0,255,136,0.5); }
+    }
+    @keyframes ringDraw {
+      from { stroke-dashoffset: 408; }
+    }
+
+    .fade-in   { animation: fadeInUp 0.6s ease both; }
+    .fade-in-2 { animation: fadeInUp 0.6s ease 0.1s both; }
+    .fade-in-3 { animation: fadeInUp 0.6s ease 0.2s both; }
+    .fade-in-4 { animation: fadeInUp 0.6s ease 0.3s both; }
+    .fade-in-5 { animation: fadeInUp 0.6s ease 0.4s both; }
+    .fade-in-6 { animation: fadeInUp 0.6s ease 0.5s both; }
+
+    .card { background: #161d2e; border: 1px solid #1e2d45; border-radius: 16px; padding: 28px 32px; }
+
+    .section-label {
+      font-family: 'Space Mono', monospace; font-size: 11px; color: #64748b;
+      letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 20px;
+    }
+
+    .progress-bar-track { background: rgba(255,255,255,0.05); border-radius: 99px; height: 6px; overflow: hidden; margin-top: 8px; }
+    .progress-bar-fill  { height: 100%; border-radius: 99px; animation: barFill 1s ease both; }
+
+    .btn-primary {
+      background: #00d4ff; color: #0a0e1a; font-family: 'Space Mono', monospace; font-weight: 700;
+      font-size: 12px; letter-spacing: 0.08em; border: none; border-radius: 10px;
+      padding: 12px 24px; cursor: pointer; transition: box-shadow 0.2s, transform 0.15s;
+      text-decoration: none; display: inline-block;
+    }
+    .btn-primary:hover { box-shadow: 0 0 24px rgba(0,212,255,0.5); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    .btn-ghost {
+      background: transparent; color: #00d4ff; font-family: 'Space Mono', monospace;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.08em; border: 1px solid #00d4ff;
+      border-radius: 10px; padding: 12px 24px; cursor: pointer; transition: background 0.2s, box-shadow 0.2s;
+      text-decoration: none; display: inline-block;
+    }
+    .btn-ghost:hover { background: rgba(0,212,255,0.08); box-shadow: 0 0 20px rgba(0,212,255,0.2); }
+
+    .nav-link { color: #64748b; font-family: 'DM Sans', sans-serif; font-size: 14px; text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover { color: #e2e8f0; }
+
+    .score-ring-container { border-radius: 50%; display: inline-flex; }
+
+    .anomaly-pill {
+      background: rgba(255,77,109,0.08); border: 1px solid rgba(255,77,109,0.2);
+      border-radius: 99px; padding: 10px 16px; display: flex; align-items: center;
+      gap: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: #ff4d6d;
+    }
+    .ok-pill {
+      background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.2);
+      border-radius: 99px; padding: 10px 16px; display: flex; align-items: center;
+      gap: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: #00ff88;
+    }
+
+    .top-accent { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: #00d4ff; z-index: 1001; }
+
+    .heatmap-img { width: 100%; border-radius: 12px; display: block; border: 1px solid #1e2d45; }
+
+    .toggle-btn {
+      font-family: 'Space Mono', monospace; font-size: 11px; padding: 6px 14px;
+      border-radius: 99px; border: 1px solid #1e2d45; cursor: pointer;
+      background: transparent; color: #64748b; transition: all 0.2s;
+    }
+    .toggle-btn.active { background: #00d4ff; color: #0a0e1a; border-color: #00d4ff; }
+    .toggle-btn:hover:not(.active) { border-color: rgba(0,212,255,0.4); color: #00d4ff; }
+  </style>
+</head>
+<body>
+
+<div class="top-accent"></div>
+
+<!-- HEADER -->
+<header style="position:fixed;top:2px;left:0;right:0;z-index:1000;height:64px;background:rgba(10,14,26,0.92);backdrop-filter:blur(12px);border-bottom:1px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;padding:0 48px;">
+  <a href="index.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <path d="M14 2L4 6v8c0 5.5 4.3 10.7 10 12 5.7-1.3 10-6.5 10-12V6L14 2z" stroke="#00d4ff" stroke-width="2" fill="rgba(0,212,255,0.08)"/>
+      <path d="M10 14l3 3 6-6" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:#00d4ff;">GuardianLens</span>
+  </a>
+  <nav style="display:flex;align-items:center;gap:32px;">
+    <a href="index.html#how-it-works" class="nav-link">How It Works</a>
+    <a href="index.html#api" class="nav-link">API</a>
+    <a href="dashboard.html" class="nav-link">Dashboard</a>
+  </nav>
+</header>
+
+<!-- MAIN -->
+<main style="padding:86px 48px 60px;max-width:880px;margin:0 auto;">
+
+  <!-- Loading state -->
+  <div id="loading-state" style="text-align:center;padding:80px 0;">
+    <p style="font-family:'Space Mono',monospace;font-size:14px;color:#64748b;">⏳ Loading analysis results...</p>
+  </div>
+
+  <!-- Error state -->
+  <div id="error-state" style="display:none;text-align:center;padding:80px 0;">
+    <p style="font-family:'Space Mono',monospace;font-size:14px;color:#ff4d6d;">❌ No scan data found.</p>
+    <a href="index.html" class="btn-primary" style="margin-top:24px;">← UPLOAD A DOCUMENT</a>
+  </div>
+
+  <!-- Results (hidden until data loaded) -->
+  <div id="results-content" style="display:none;">
+
+    <!-- RESULT HEADER -->
+    <div class="card fade-in" style="display:flex;align-items:center;gap:48px;flex-wrap:wrap;margin-bottom:16px;">
+      <div class="score-ring-container" id="ring-glow-wrapper" style="flex-shrink:0;">
+        <svg width="140" height="140" viewBox="0 0 140 140" id="score-svg">
+          <circle cx="70" cy="70" r="65" fill="none" stroke="rgba(0,255,136,0.08)" stroke-width="8"/>
+          <circle id="score-ring" cx="70" cy="70" r="65" fill="none"
+            stroke="#00ff88" stroke-width="8" stroke-linecap="round"
+            stroke-dasharray="408" stroke-dashoffset="408"
+            style="transform-origin:70px 70px;transform:rotate(-90deg);transition:stroke-dashoffset 1.5s ease 0.3s;filter:drop-shadow(0 0 8px rgba(0,255,136,0.6));"
+          />
+          <text id="score-text" x="70" y="66" text-anchor="middle" dominant-baseline="middle"
+            style="font-family:'Space Mono',monospace;font-size:32px;font-weight:700;fill:#00ff88;">--</text>
+          <text id="verdict-text" x="70" y="90" text-anchor="middle" dominant-baseline="middle"
+            style="font-family:'Space Mono',monospace;font-size:9px;fill:#00ff88;letter-spacing:0.2em;">---</text>
+        </svg>
+      </div>
+
+      <div style="flex:1;min-width:200px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span id="verdict-badge" style="background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.3);border-radius:99px;padding:4px 12px;font-family:'Space Mono',monospace;font-size:10px;color:#00ff88;letter-spacing:0.15em;">● ---</span>
+        </div>
+        <h1 style="font-family:'DM Sans',sans-serif;font-size:20px;font-weight:700;color:#e2e8f0;margin:0 0 8px;">Document Analysis Complete</h1>
+        <p id="result-filename" style="font-family:'Space Mono',monospace;font-size:13px;color:#64748b;margin:0 0 4px;">—</p>
+        <p id="result-meta" style="font-family:'DM Sans',sans-serif;font-size:12px;color:#64748b;margin:0 0 24px;">Powered by GuardianLens AI</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a id="download-cert-btn" href="#" class="btn-primary" style="opacity:0.4;pointer-events:none;">⬇ DOWNLOAD CERTIFICATE</a>
+          <a href="index.html" class="btn-ghost">ANALYZE ANOTHER</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- BREAKDOWN BARS -->
+    <div class="card fade-in-2" style="margin-bottom:16px;">
+      <p class="section-label">ANALYSIS BREAKDOWN</p>
+      <div id="breakdown-bars"></div>
+    </div>
+
+    <!-- ANOMALIES -->
+    <div class="card fade-in-3" style="margin-bottom:16px;">
+      <p class="section-label">ANOMALIES DETECTED</p>
+      <div id="anomalies-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- AI SUMMARY -->
+    <div class="card fade-in-4" style="margin-bottom:16px;">
+      <p class="section-label">AI SUMMARY</p>
+      <p id="ai-summary" style="font-family:'DM Sans',sans-serif;font-size:14px;color:#e2e8f0;line-height:1.8;margin:0;"></p>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid #1e2d45;">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="#00d4ff" stroke-width="1.2"/><path d="M4.5 7l2 2 3-3.5" stroke="#00d4ff" stroke-width="1.2" stroke-linecap="round"/></svg>
+        <span id="model-label" style="font-family:'Space Mono',monospace;font-size:11px;color:#64748b;letter-spacing:0.05em;">Analyzed by GuardianLens AI</span>
+      </div>
+    </div>
+
+    <!-- SDG BANNER -->
+    <div class="fade-in-5" style="background:#0d1625;border:1px solid rgba(0,212,255,0.2);border-radius:16px;padding:20px 28px;display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+      <span style="font-size:24px;">🌍</span>
+      <div>
+        <p style="font-family:'Space Mono',monospace;font-size:12px;color:#00d4ff;margin:0 0 4px;letter-spacing:0.05em;">SDG 16: Peace, Justice and Strong Institutions</p>
+        <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;">Fighting document fraud worldwide — protecting healthcare, education, and financial access in emerging markets.</p>
+      </div>
+    </div>
+
+    <!-- FORENSIC HEATMAP -->
+    <div class="card fade-in-6" style="margin-bottom:16px;" id="heatmap-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <p class="section-label" style="margin-bottom:0;">FORENSIC HEATMAP (ELA)</p>
+        <div id="heatmap-toggles" style="display:flex;gap:8px;"></div>
+      </div>
+      <div id="heatmap-container">
+        <div id="heatmap-loading" style="background:#0a0e1a;border:1px solid #1e2d45;border-radius:12px;height:180px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;">
+          <p style="font-family:'Space Mono',monospace;font-size:12px;color:#64748b;margin:0;letter-spacing:0.05em;">Loading ELA heatmap...</p>
+        </div>
+        <img id="heatmap-img" class="heatmap-img" src="" alt="ELA Forensic Heatmap" style="display:none;" />
+      </div>
+      <p style="font-family:'DM Sans',sans-serif;font-size:12px;color:#64748b;margin:12px 0 0;line-height:1.6;">
+        <strong style="color:#00d4ff;">ELA (Error Level Analysis)</strong> detects tampering by measuring how differently image regions compress. Red/bright areas indicate potential forgery — they were edited after the original save.
+      </p>
+    </div>
+
+    <!-- ELA REGIONS -->
+    <div class="card fade-in-6" id="regions-section" style="margin-bottom:16px;display:none;">
+      <p class="section-label">FLAGGED REGIONS</p>
+      <div id="regions-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <!-- RAW JSON (for developers) -->
+    <details style="margin-bottom:32px;">
+      <summary style="font-family:'Space Mono',monospace;font-size:11px;color:#64748b;cursor:pointer;letter-spacing:0.1em;padding:12px 0;">VIEW RAW JSON RESPONSE</summary>
+      <pre id="raw-json" style="background:#111827;border:1px solid #1e2d45;border-radius:12px;padding:20px;font-family:'Space Mono',monospace;font-size:11px;color:#64748b;overflow-x:auto;margin-top:8px;line-height:1.6;"></pre>
+    </details>
+
+  </div><!-- end results-content -->
+</main>
+
+<!-- FOOTER -->
+<footer style="border-top:1px solid #1e2d45;padding:32px 48px;text-align:center;margin-top:20px;">
+  <p style="font-family:'Space Mono',monospace;font-size:12px;color:#64748b;margin:0;letter-spacing:0.05em;">
+    GuardianLens · Google Solution Challenge 2026 · SDG 16
+  </p>
+</footer>
+
+<script>
+  const API_BASE = 'http://localhost:8000';
+
+  // ── DEMO DATA ────────────────────────────────────────────────
+  const DEMO_DATA = {
+    scan_id: 'demo-0000-0000-0000-000000000000',
+    trust_score: 23,
+    verdict: 'FORGED',
+    confidence: 0.94,
+    breakdown: { metadata_integrity: 45, visual_consistency: 12, content_coherence: 31, font_analysis: 28, seal_stamp_check: 19 },
+    anomalies: [
+      'High ELA error level in signature region (top-right quadrant)',
+      'JPEG compression artifacts inconsistent between photo and text regions',
+      'Font substitution detected — multiple typefaces in single field',
+      'Seal stamp shows digital insertion artifacts (transparency halo)',
+    ],
+    ela_heatmap_url: null,
+    ela_regions: [
+      { x: 420, y: 180, w: 95, h: 42, severity: 87.3 },
+      { x: 80,  y: 60,  w: 110, h: 80, severity: 61.2 },
+    ],
+    summary: 'Strong indicators of digital forgery detected. The signature region was digitally inserted post-scan. Aadhaar number font deviates from official UIDAI specification. ELA analysis reveals significant error level spikes inconsistent with authentic documents.',
+    doc_type_detected: 'india_aadhaar',
+    ai_model_used: 'gemini-1.5-flash (demo)',
+    processing_time_ms: 2847,
+    certificate_url: null,
+    sdg_tag: 'SDG 16',
+    created_at: new Date().toISOString(),
+    filename: 'demo_forged_aadhaar.jpg',
+  };
+
+  // ── INIT ─────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    let data = null;
+
+    if (params.get('demo') === 'true') {
+      data = DEMO_DATA;
+    } else {
+      // Try sessionStorage first (set by index.html)
+      const stored = sessionStorage.getItem('scan_result');
+      if (stored) {
+        try { data = JSON.parse(stored); } catch(e) {}
+      }
+
+      // If we have a scan_id but no stored data, fetch from API
+      if (!data && params.get('scan_id')) {
+        try {
+          const resp = await fetch(`${API_BASE}/api/scan/${params.get('scan_id')}`);
+          if (resp.ok) data = await resp.json();
+        } catch(e) {}
+      }
+    }
+
+    if (!data) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('error-state').style.display = 'block';
+      return;
+    }
+
+    renderResults(data);
+  });
+
+  // ── RENDER ───────────────────────────────────────────────────
+  function renderResults(data) {
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('results-content').style.display = 'block';
+
+    const score   = data.trust_score ?? 0;
+    const verdict = data.verdict ?? 'UNKNOWN';
+
+    // Score ring
+    const circumference = 408;
+    const filled = circumference * (score / 100);
+    const offset = circumference - filled;
+    const ringColor = verdict === 'AUTHENTIC' ? '#00ff88' : verdict === 'SUSPICIOUS' ? '#ffd600' : '#ff4d6d';
+    const ring = document.getElementById('score-ring');
+    ring.style.stroke = ringColor;
+    ring.style.filter = `drop-shadow(0 0 8px ${ringColor}88)`;
+    document.getElementById('score-text').style.fill = ringColor;
+    document.getElementById('verdict-text').style.fill = ringColor;
+    document.getElementById('score-text').textContent = score;
+    document.getElementById('verdict-text').textContent = verdict;
+
+    // Animate ring after a tick
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { ring.style.strokeDashoffset = offset; });
+    });
+
+    // Verdict badge
+    const badgeBg = verdict === 'AUTHENTIC' ? 'rgba(0,255,136,0.12)' : verdict === 'SUSPICIOUS' ? 'rgba(255,214,0,0.12)' : 'rgba(255,77,109,0.12)';
+    const badgeBorder = verdict === 'AUTHENTIC' ? 'rgba(0,255,136,0.3)' : verdict === 'SUSPICIOUS' ? 'rgba(255,214,0,0.3)' : 'rgba(255,77,109,0.3)';
+    const badge = document.getElementById('verdict-badge');
+    badge.style.background = badgeBg;
+    badge.style.border = `1px solid ${badgeBorder}`;
+    badge.style.color = ringColor;
+    badge.textContent = `● ${verdict}`;
+
+    // Filename + meta
+    const filename = data.filename || `scan_${(data.scan_id||'').slice(0,8)}`;
+    document.getElementById('result-filename').textContent = filename;
+    const ms = data.processing_time_ms;
+    const model = data.ai_model_used || 'GuardianLens AI';
+    document.getElementById('result-meta').textContent =
+      `${ms ? `Analyzed in ${(ms/1000).toFixed(1)}s · ` : ''}Powered by ${model}`;
+
+    // Certificate
+    const certUrl = data.certificate_url;
+    const certBtn = document.getElementById('download-cert-btn');
+    if (certUrl) {
+      certBtn.href = certUrl.startsWith('http') ? certUrl : `${API_BASE}${certUrl}`;
+      certBtn.style.opacity = '1';
+      certBtn.style.pointerEvents = 'auto';
+    }
+
+    // Breakdown bars
+    const breakdown = data.breakdown || {};
+    const barDefs = [
+      { label: 'Metadata Integrity',  key: 'metadata_integrity',  color: '#00d4ff' },
+      { label: 'Visual Consistency',  key: 'visual_consistency',   color: '#00d4ff' },
+      { label: 'Content Coherence',   key: 'content_coherence',    color: '#00ff88' },
+      { label: 'Font Analysis',       key: 'font_analysis',        color: '#00ff88' },
+      { label: 'Seal & Stamp Check',  key: 'seal_stamp_check',     color: '#ffd600' },
+    ];
+    const barsContainer = document.getElementById('breakdown-bars');
+    barsContainer.innerHTML = barDefs.map((b, i) => {
+      const val = breakdown[b.key] ?? 0;
+      return `
+        <div style="margin-bottom:${i < barDefs.length-1 ? '20px' : '0'};">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-family:'Space Mono',monospace;font-size:13px;color:#64748b;">${b.label}</span>
+            <span style="font-family:'Space Mono',monospace;font-size:13px;color:${b.color};">${val}%</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" style="width:${val}%;background:${b.color};animation-delay:${0.3 + i*0.1}s;"></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Anomalies
+    const anomalies = data.anomalies || [];
+    const anomaliesEl = document.getElementById('anomalies-list');
+    if (anomalies.length === 0) {
+      anomaliesEl.innerHTML = `<div class="ok-pill">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#00ff88" stroke-width="1.5"/><path d="M5 8l2.5 2.5L11 5" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/></svg>
+        No significant anomalies found
+      </div>`;
+    } else {
+      anomaliesEl.innerHTML = anomalies.map(a => `
+        <div class="anomaly-pill">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L15 14H1L8 2z" stroke="#ff4d6d" stroke-width="1.5" fill="none"/><path d="M8 7v3M8 11.5v.5" stroke="#ff4d6d" stroke-width="1.5" stroke-linecap="round"/></svg>
+          ${escHtml(a)}
+        </div>`).join('');
+    }
+
+    // AI Summary
+    document.getElementById('ai-summary').textContent = data.summary || data.ai_summary || 'No summary available.';
+    document.getElementById('model-label').textContent = `Analyzed by ${model}`;
+
+    // Heatmap
+    const heatmapUrl = data.ela_heatmap_url;
+    const heatmapLoading = document.getElementById('heatmap-loading');
+    const heatmapImg = document.getElementById('heatmap-img');
+
+    if (heatmapUrl) {
+      const fullUrl = heatmapUrl.startsWith('http') ? heatmapUrl : `${API_BASE}${heatmapUrl}`;
+      // IMPORTANT: set handlers BEFORE src to avoid race on cached images
+      heatmapImg.onload = () => {
+        heatmapLoading.style.display = 'none';
+        heatmapImg.style.display = 'block';
+      };
+      heatmapImg.onerror = () => {
+        heatmapLoading.innerHTML =
+          `<p style="font-family:'Space Mono',monospace;font-size:12px;color:#ff4d6d;margin:0;">
+             Heatmap unavailable — <a href="${fullUrl}" target="_blank" style="color:#00d4ff;">open directly</a>
+           </p>`;
+        heatmapLoading.style.display = 'flex';
+      };
+      heatmapImg.src = fullUrl;  // set src AFTER handlers
+    } else {
+      heatmapLoading.innerHTML =
+        `<p style="font-family:'Space Mono',monospace;font-size:12px;color:#64748b;margin:0;letter-spacing:0.05em;">ELA heatmap will appear here after analysis</p>`;
+    }
+
+    // ELA regions
+    const regions = data.ela_regions || [];
+    if (regions.length > 0) {
+      document.getElementById('regions-section').style.display = 'block';
+      document.getElementById('regions-list').innerHTML = regions.map((r, i) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(255,77,109,0.05);border:1px solid rgba(255,77,109,0.15);border-radius:10px;">
+          <span style="font-family:'Space Mono',monospace;font-size:12px;color:#e2e8f0;">Region ${i+1} — (${r.x},${r.y}) ${r.w}×${r.h}px</span>
+          <span style="font-family:'Space Mono',monospace;font-size:12px;color:#ff4d6d;">Severity: ${r.severity?.toFixed ? r.severity.toFixed(1) : r.severity}</span>
+        </div>`).join('');
+    }
+
+    // Raw JSON
+    document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+
+</body>
+</html>

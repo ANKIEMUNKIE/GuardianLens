@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Dashboard — GuardianLens</title>
+  <meta name="description" content="GuardianLens scan history dashboard — view all your document authentication results, filter by verdict, and download certificates." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { background-color: #0a0e1a; color: #e2e8f0; font-family: 'DM Sans', sans-serif; margin: 0; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in   { animation: fadeInUp 0.5s ease both; }
+    .fade-in-2 { animation: fadeInUp 0.5s ease 0.08s both; }
+    .fade-in-3 { animation: fadeInUp 0.5s ease 0.16s both; }
+    .fade-in-4 { animation: fadeInUp 0.5s ease 0.24s both; }
+    .fade-in-5 { animation: fadeInUp 0.5s ease 0.32s both; }
+
+    .stat-card { background: #161d2e; border: 1px solid #1e2d45; border-radius: 16px; padding: 24px 24px 20px; position: relative; overflow: hidden; }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .stat-card.cyan::before { background: #00d4ff; }
+    .stat-card.green::before { background: #00ff88; }
+    .stat-card.yellow::before { background: #ffd600; }
+    .stat-card.red::before { background: #ff4d6d; }
+
+    .filter-pill { font-family: 'Space Mono', monospace; font-size: 11px; border-radius: 99px; padding: 7px 16px; cursor: pointer; border: none; letter-spacing: 0.08em; transition: background 0.2s, color 0.2s; }
+    .filter-pill.active { background: #00d4ff; color: #0a0e1a; font-weight: 700; }
+    .filter-pill.inactive { background: transparent; color: #64748b; border: 1px solid #1e2d45; }
+    .filter-pill.inactive:hover { color: #00d4ff; border-color: rgba(0,212,255,0.4); }
+
+    .search-input { background: #161d2e; border: 1px solid #1e2d45; border-radius: 10px; padding: 10px 16px; font-family: 'Space Mono', monospace; font-size: 12px; color: #e2e8f0; outline: none; width: 100%; transition: border-color 0.2s, box-shadow 0.2s; }
+    .search-input::placeholder { color: #64748b; }
+    .search-input:focus { border-color: #00d4ff; box-shadow: 0 0 0 3px rgba(0,212,255,0.1); }
+
+    .table-card { background: #161d2e; border: 1px solid #1e2d45; border-radius: 16px; overflow-x: auto; }
+    .verdict-badge { font-family: 'Space Mono', monospace; font-size: 10px; border-radius: 99px; padding: 4px 12px; display: inline-block; letter-spacing: 0.08em; font-weight: 700; }
+    .badge-authentic { background: rgba(0,255,136,0.12); color: #00ff88; border: 1px solid rgba(0,255,136,0.25); }
+    .badge-suspicious { background: rgba(255,214,0,0.12); color: #ffd600; border: 1px solid rgba(255,214,0,0.25); }
+    .badge-forged     { background: rgba(255,77,109,0.12); color: #ff4d6d; border: 1px solid rgba(255,77,109,0.25); }
+
+    .action-link { font-family: 'DM Sans', sans-serif; font-size: 13px; color: #00d4ff; text-decoration: none; transition: opacity 0.2s; }
+    .action-link:hover { opacity: 0.7; text-decoration: underline; }
+
+    .pagination-btn { font-family: 'Space Mono', monospace; font-size: 12px; color: #64748b; background: transparent; border: 1px solid #1e2d45; border-radius: 8px; padding: 8px 16px; cursor: pointer; transition: color 0.2s, border-color 0.2s; text-decoration: none; }
+    .pagination-btn:hover { color: #00d4ff; border-color: rgba(0,212,255,0.4); }
+    .pagination-btn:disabled { opacity: 0.3; cursor: default; }
+
+    .nav-link { color: #64748b; font-family: 'DM Sans', sans-serif; font-size: 14px; text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover { color: #e2e8f0; }
+    .nav-link.active { color: #00d4ff; }
+    .top-accent { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: #00d4ff; z-index: 1001; }
+  </style>
+</head>
+<body>
+
+<div class="top-accent"></div>
+
+<!-- HEADER -->
+<header style="position:fixed;top:2px;left:0;right:0;z-index:1000;height:64px;background:rgba(10,14,26,0.92);backdrop-filter:blur(12px);border-bottom:1px solid #1e2d45;display:flex;align-items:center;justify-content:space-between;padding:0 48px;">
+  <a href="index.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <path d="M14 2L4 6v8c0 5.5 4.3 10.7 10 12 5.7-1.3 10-6.5 10-12V6L14 2z" stroke="#00d4ff" stroke-width="2" fill="rgba(0,212,255,0.08)"/>
+      <path d="M10 14l3 3 6-6" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:#00d4ff;">GuardianLens</span>
+  </a>
+  <nav style="display:flex;align-items:center;gap:28px;">
+    <a href="index.html#how-it-works" class="nav-link">How It Works</a>
+    <a href="index.html#api" class="nav-link">API</a>
+    <a href="dashboard.html" class="nav-link active">My Dashboard</a>
+  </nav>
+</header>
+
+<!-- MAIN -->
+<main style="padding:86px 48px 60px;max-width:1200px;margin:0 auto;">
+
+  <div class="fade-in" style="margin-bottom:32px;">
+    <p style="font-family:'Space Mono',monospace;font-size:11px;color:#64748b;letter-spacing:0.2em;margin:0 0 8px;">SCAN HISTORY</p>
+    <h1 style="font-family:'DM Sans',sans-serif;font-size:24px;font-weight:700;color:#e2e8f0;margin:0;">My Dashboard</h1>
+  </div>
+
+  <!-- STATS -->
+  <div class="fade-in-2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px;">
+    <div class="stat-card cyan">
+      <p id="stat-total" style="font-family:'Space Mono',monospace;font-size:36px;font-weight:700;color:#00d4ff;margin:0 0 6px;line-height:1;">—</p>
+      <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;">Total Scans</p>
+    </div>
+    <div class="stat-card green">
+      <p id="stat-auth" style="font-family:'Space Mono',monospace;font-size:36px;font-weight:700;color:#00ff88;margin:0 0 6px;line-height:1;">—</p>
+      <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;">Authentic</p>
+    </div>
+    <div class="stat-card yellow">
+      <p id="stat-susp" style="font-family:'Space Mono',monospace;font-size:36px;font-weight:700;color:#ffd600;margin:0 0 6px;line-height:1;">—</p>
+      <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;">Suspicious</p>
+    </div>
+    <div class="stat-card red">
+      <p id="stat-forged" style="font-family:'Space Mono',monospace;font-size:36px;font-weight:700;color:#ff4d6d;margin:0 0 6px;line-height:1;">—</p>
+      <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;">Forged</p>
+    </div>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="fade-in-3" style="background:#161d2e;border:1px solid #1e2d45;border-radius:16px;padding:20px 24px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+      <span style="font-family:'Space Mono',monospace;font-size:13px;color:#64748b;letter-spacing:0.1em;">FILTER</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="filter-pill active"  onclick="setFilter('ALL',this)">ALL</button>
+        <button class="filter-pill inactive" onclick="setFilter('AUTHENTIC',this)">AUTHENTIC</button>
+        <button class="filter-pill inactive" onclick="setFilter('SUSPICIOUS',this)">SUSPICIOUS</button>
+        <button class="filter-pill inactive" onclick="setFilter('FORGED',this)">FORGED</button>
+      </div>
+    </div>
+    <div style="position:relative;">
+      <svg style="position:absolute;left:14px;top:50%;transform:translateY(-50%);" width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <circle cx="6" cy="6" r="5" stroke="#64748b" stroke-width="1.3"/>
+        <path d="M10 10l3 3" stroke="#64748b" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      <input class="search-input" type="text" id="search-input" placeholder="Search by filename..." style="padding-left:36px;" oninput="applyFilters()" />
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-card fade-in-4" style="margin-bottom:16px;">
+    <table style="width:100%;border-collapse:collapse;min-width:760px;">
+      <thead>
+        <tr style="background:#111827;border-bottom:1px solid #1e2d45;">
+          <th style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;letter-spacing:0.2em;text-align:left;padding:14px 20px 14px 28px;font-weight:400;">DOCUMENT</th>
+          <th style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;letter-spacing:0.2em;text-align:left;padding:14px 12px;font-weight:400;">DATE</th>
+          <th style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;letter-spacing:0.2em;text-align:left;padding:14px 12px;font-weight:400;">TYPE</th>
+          <th style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;letter-spacing:0.2em;text-align:left;padding:14px 12px;font-weight:400;">SCORE</th>
+          <th style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;letter-spacing:0.2em;text-align:left;padding:14px 12px;font-weight:400;">VERDICT</th>
+          <th style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;letter-spacing:0.2em;text-align:left;padding:14px 28px 14px 12px;font-weight:400;">ACTIONS</th>
+        </tr>
+      </thead>
+      <tbody id="scans-tbody">
+        <tr>
+          <td colspan="6" style="text-align:center;padding:40px;font-family:'Space Mono',monospace;font-size:13px;color:#64748b;">Loading scan history...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- PAGINATION -->
+  <div class="fade-in-5" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px;">
+    <button class="pagination-btn" id="prev-btn" onclick="changePage(-1)" disabled>← Prev</button>
+    <span id="page-label" style="font-family:'Space Mono',monospace;font-size:12px;color:#e2e8f0;padding:8px 16px;">Page 1</span>
+    <button class="pagination-btn" id="next-btn" onclick="changePage(1)">Next →</button>
+  </div>
+
+  <!-- QUICK ACTIONS -->
+  <div class="fade-in-5" style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;padding-top:8px;">
+    <a href="index.html" style="background:#00d4ff;color:#0a0e1a;font-family:'Space Mono',monospace;font-weight:700;font-size:12px;letter-spacing:0.08em;border-radius:10px;padding:12px 24px;text-decoration:none;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 0 24px rgba(0,212,255,0.5)'" onmouseout="this.style.boxShadow='none'">
+      + NEW SCAN
+    </a>
+    <a href="http://localhost:8000/docs" target="_blank" style="background:transparent;color:#00d4ff;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:0.08em;border:1px solid #00d4ff;border-radius:10px;padding:12px 24px;text-decoration:none;transition:background 0.2s;" onmouseover="this.style.background='rgba(0,212,255,0.08)'" onmouseout="this.style.background='transparent'">
+      API DOCS ↗
+    </a>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer style="border-top:1px solid #1e2d45;padding:32px 48px;text-align:center;margin-top:40px;">
+  <p style="font-family:'Space Mono',monospace;font-size:12px;color:#64748b;margin:0;letter-spacing:0.05em;">
+    GuardianLens · Google Solution Challenge 2026 · SDG 16
+  </p>
+</footer>
+
+<script>
+  const API_BASE = 'http://localhost:8000';
+  const PER_PAGE = 10;
+
+  let allScans = [];
+  let filteredScans = [];
+  let currentPage = 1;
+  let activeFilter = 'ALL';
+
+  // ── INIT ─────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', async () => {
+    await loadHistory();
+  });
+
+  async function loadHistory() {
+    try {
+      // Fetch all (up to 200) for client-side pagination + stats
+      const resp = await fetch(`${API_BASE}/api/history?page=1&per_page=200`);
+      if (!resp.ok) throw new Error('API error');
+      const data = await resp.json();
+      allScans = data.scans || [];
+      updateStats(allScans);
+      applyFilters();
+    } catch (e) {
+      document.getElementById('scans-tbody').innerHTML = `
+        <tr><td colspan="6" style="text-align:center;padding:40px;">
+          <p style="font-family:'Space Mono',monospace;font-size:13px;color:#ff4d6d;margin:0 0 16px;">⚠ Could not connect to backend</p>
+          <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;">Make sure the backend is running: <code style="color:#00d4ff;">cd backend &amp;&amp; python run.py</code></p>
+        </td></tr>`;
+      setStats(0, 0, 0, 0);
+    }
+  }
+
+  function updateStats(scans) {
+    const total = scans.length;
+    const auth  = scans.filter(s => s.verdict === 'AUTHENTIC').length;
+    const susp  = scans.filter(s => s.verdict === 'SUSPICIOUS').length;
+    const forg  = scans.filter(s => s.verdict === 'FORGED').length;
+    setStats(total, auth, susp, forg);
+  }
+
+  function setStats(total, auth, susp, forg) {
+    document.getElementById('stat-total').textContent  = total;
+    document.getElementById('stat-auth').textContent   = auth;
+    document.getElementById('stat-susp').textContent   = susp;
+    document.getElementById('stat-forged').textContent = forg;
+  }
+
+  function setFilter(filter, btn) {
+    activeFilter = filter;
+    document.querySelectorAll('.filter-pill').forEach(p => {
+      p.classList.remove('active'); p.classList.add('inactive');
+    });
+    btn.classList.add('active'); btn.classList.remove('inactive');
+    currentPage = 1;
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const search = (document.getElementById('search-input').value || '').toLowerCase();
+    filteredScans = allScans.filter(s => {
+      const matchFilter = activeFilter === 'ALL' || s.verdict === activeFilter;
+      const matchSearch = !search || (s.filename || '').toLowerCase().includes(search);
+      return matchFilter && matchSearch;
+    });
+    renderPage();
+  }
+
+  function renderPage() {
+    const totalPages = Math.max(1, Math.ceil(filteredScans.length / PER_PAGE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PER_PAGE;
+    const pageScans = filteredScans.slice(start, start + PER_PAGE);
+
+    document.getElementById('page-label').textContent = `Page ${currentPage} of ${totalPages}`;
+    document.getElementById('prev-btn').disabled = currentPage <= 1;
+    document.getElementById('next-btn').disabled = currentPage >= totalPages;
+
+    const tbody = document.getElementById('scans-tbody');
+    if (filteredScans.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;font-family:'Space Mono',monospace;font-size:13px;color:#64748b;">No scans found</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = pageScans.map((s, i) => {
+      const badgeClass = s.verdict === 'AUTHENTIC' ? 'badge-authentic' : s.verdict === 'SUSPICIOUS' ? 'badge-suspicious' : 'badge-forged';
+      const scoreColor = s.verdict === 'AUTHENTIC' ? '#00ff88' : s.verdict === 'SUSPICIOUS' ? '#ffd600' : '#ff4d6d';
+      const date = s.created_at ? new Date(s.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—';
+      const docType = formatDocType(s.doc_type || 'other');
+      const altBg = i % 2 === 1 ? 'background:rgba(17,24,39,0.5);' : '';
+      const heatmapUrl = s.ela_heatmap_url ? `${API_BASE}${s.ela_heatmap_url}` : null;
+      const certUrl    = s.certificate_url  ? `${API_BASE}${s.certificate_url}`  : null;
+
+      return `<tr data-verdict="${s.verdict}" data-filename="${escAttr(s.filename||'')}"
+        style="border-bottom:1px solid rgba(30,45,69,0.5);${altBg}transition:background 0.15s;cursor:pointer;"
+        onmouseover="this.style.background='rgba(0,212,255,0.03)'"
+        onmouseout="this.style.background='${i%2===1?'rgba(17,24,39,0.5)':''}'"
+        onclick="viewScan('${s.scan_id}')">
+        <td style="padding:16px 20px 16px 28px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:16px;">📄</span>
+            <span style="font-family:'DM Sans',sans-serif;font-size:14px;color:#e2e8f0;font-weight:500;">${escHtml(s.filename||'Unknown')}</span>
+          </div>
+        </td>
+        <td style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;padding:16px 12px;white-space:nowrap;">${date}</td>
+        <td style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;padding:16px 12px;">${docType}</td>
+        <td style="font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:${scoreColor};padding:16px 12px;">${s.trust_score ?? '—'}</td>
+        <td style="padding:16px 12px;"><span class="verdict-badge ${badgeClass}">${s.verdict || '—'}</span></td>
+        <td style="padding:16px 28px 16px 12px;" onclick="event.stopPropagation()">
+          <div style="display:flex;gap:16px;">
+            <a href="result.html?scan_id=${s.scan_id}" class="action-link">View</a>
+            ${certUrl ? `<a href="${certUrl}" class="action-link" download>Certificate</a>` : '<span style="color:#374151;font-family:\'DM Sans\',sans-serif;font-size:13px;">—</span>'}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function changePage(dir) {
+    const totalPages = Math.max(1, Math.ceil(filteredScans.length / PER_PAGE));
+    currentPage = Math.max(1, Math.min(totalPages, currentPage + dir));
+    renderPage();
+  }
+
+  async function viewScan(scanId) {
+    try {
+      const resp = await fetch(`${API_BASE}/api/scan/${scanId}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        sessionStorage.setItem('scan_result', JSON.stringify(data));
+      }
+    } catch(e) {}
+    window.location.href = `result.html?scan_id=${encodeURIComponent(scanId)}`;
+  }
+
+  function formatDocType(raw) {
+    const map = {
+      india_aadhaar: 'Aadhaar', india_pan: 'PAN Card',
+      kenya_national_id: 'Kenyan ID', us_passport: 'US Passport',
+      medical_prescription_india: 'Prescription',
+      academic_certificate_generic: 'Certificate',
+      contract: 'Contract', other: 'Other',
+    };
+    return map[raw] || raw;
+  }
+  function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escAttr(s) { return s.replace(/"/g,'&quot;'); }
+</script>
+
+</body>
+</html>

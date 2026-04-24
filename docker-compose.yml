@@ -1,0 +1,30 @@
+# GuardianLens — Docker Compose (local dev)
+# Usage: docker-compose up --build
+
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app          # live reload in dev
+      - guardianlens_uploads:/app/uploads
+      - guardianlens_heatmaps:/app/heatmaps
+      - guardianlens_certs:/app/certificates
+    environment:
+      - APP_ENV=development
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DATABASE_URL=sqlite+aiosqlite:///./guardianlens.db
+      - MAX_FILE_SIZE_MB=10
+      - RATE_LIMIT_PER_MINUTE=20
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
+    restart: unless-stopped
+
+volumes:
+  guardianlens_uploads:
+  guardianlens_heatmaps:
+  guardianlens_certs:

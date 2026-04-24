@@ -1,0 +1,63 @@
+# ── Secrets & Config ─────────────────────────────────────────
+backend/.env
+
+# ── Internal planning docs (not for public repo) ─────────────
+claude.md
+prd.md
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# ── Test outputs ──────────────────────────────────────────────
+test_report.json
+*.log
+
+# ── Generated files (runtime artifacts) ──────────────────────
+backend/uploads/
+backend/heatmaps/
+backend/certificates/
+backend/guardianlens.db
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+
+# ── Coverage & pytest ─────────────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# ── IDEs ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Node (if frontend ever uses a bundler) ────────────────────
+node_modules/
+.next/
+dist/
+
+# ── Docker ────────────────────────────────────────────────────
+# (docker-compose.yml IS included — only exclude local overrides)
+docker-compose.override.yml
+
+# ── Misc ──────────────────────────────────────────────────────
+*.tmp
+*.bak
