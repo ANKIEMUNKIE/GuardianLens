@@ -1,5 +1,5 @@
 # GuardianLens Backend Dependencies
-# Install: pip install -r requirements.txt
+# Render-compatible: no system binaries, no C compiler needed
 
 # Core Web Framework
 fastapi==0.115.0
@@ -22,25 +22,19 @@ aiofiles==23.2.1
 Pillow==10.4.0
 numpy==1.26.4
 
-# Optional — scipy improves ELA accuracy but not required (needs C compiler)
-# scipy==1.13.0
+# Google Gemini AI
+# google-genai 1.9.0 requires httpx>=0.28.1,<1.0.0
+google-genai==1.9.0
+httpx>=0.28.1,<1.0.0
 
-# Google Gemini AI (new SDK — replaces deprecated google-generativeai)
-google-genai>=1.9.0
-
-# PDF Support
+# PDF Support (pure-python only)
 PyPDF2==3.0.1
-# pdf2image==1.17.0  # Needs poppler-utils binary — available in Docker only
-
-# OCR — needs Tesseract binary (available in Docker, skip on Render Python runtime)
-# pytesseract==0.3.13
+# pdf2image needs poppler binary — Docker only, skip on Render
+# pytesseract needs Tesseract binary — Docker only, skip on Render
 
 # Certificate Generation
 reportlab==4.2.5
 qrcode[pil]==8.0
-
-# HTTP Client
-httpx==0.27.2
 
 # Rate Limiting
 slowapi==0.1.9
