@@ -2,6 +2,9 @@
 GuardianLens — Gemini Vision Analysis
 Primary AI model for document visual forensics.
 Falls back to mock scoring if no API key is configured.
+
+SDK: google-genai (new, replaces deprecated google-generativeai)
+Model: gemini-2.0-flash-lite (highest free-tier quota)
 """
 import asyncio
 import json
@@ -14,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 # Thread pool for blocking Gemini SDK calls
 _executor = ThreadPoolExecutor(max_workers=4)
-GEMINI_TIMEOUT_SECONDS = 30
+GEMINI_TIMEOUT_SECONDS = 12   # Fail fast → mock results in ~12s max
+# gemini-2.0-flash-lite: highest free-tier quota (best for hackathon)
+GEMINI_MODEL = "gemini-2.0-flash-lite"
 
 
 GEMINI_PROMPT_TEMPLATE = """
@@ -82,9 +87,10 @@ async def analyze_with_gemini(
         return None
 
     try:
-        import google.generativeai as genai
+        # New google-genai SDK (replaces deprecated google-generativeai)
+        from google import genai
 
-        genai.configure(api_key=api_key)
+        client = genai.Client(api_key=api_key)
 
         # Format ELA region summary for prompt
         ela_summary = "No high-error regions detected"
@@ -104,10 +110,11 @@ async def analyze_with_gemini(
         img = Image.open(image_path)
 
         # Run blocking Gemini SDK call in thread pool so we don't stall the event loop
-        model = genai.GenerativeModel("gemini-1.5-flash")
-
         def _call_gemini():
-            return model.generate_content([prompt, img])
+            return client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=[prompt, img],
+            )
 
         loop = asyncio.get_event_loop()
         response = await asyncio.wait_for(
@@ -132,7 +139,15 @@ async def analyze_with_gemini(
         logger.error(f"Gemini returned invalid JSON: {e}")
         return None
     except Exception as e:
-        logger.error(f"Gemini API call failed: {e}")
+        err_str = str(e).lower()
+        if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str or "rate" in err_str:
+            logger.warning("Gemini quota/rate-limit hit — falling back immediately")
+        elif "403" in err_str or "api_key_invalid" in err_str or "invalid" in err_str:
+            logger.warning("Gemini API key invalid or unauthorized — falling back to mock")
+        elif "network" in err_str or "connect" in err_str or "ssl" in err_str:
+            logger.warning(f"Gemini network error: {e} — falling back")
+        else:
+            logger.error(f"Gemini API call failed: {e}")
         return None
 
 

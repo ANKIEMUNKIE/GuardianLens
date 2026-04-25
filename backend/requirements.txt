@@ -25,8 +25,8 @@ numpy>=1.26.4
 # Optional but recommended
 scipy==1.13.0
 
-# Google Gemini AI
-google-generativeai==0.8.3
+# Google Gemini AI (new SDK — replaces deprecated google-generativeai)
+google-genai>=1.9.0
 
 # PDF Support
 PyPDF2==3.0.1

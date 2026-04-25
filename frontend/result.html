@@ -105,6 +105,9 @@
     <a href="index.html#how-it-works" class="nav-link">How It Works</a>
     <a href="index.html#api" class="nav-link">API</a>
     <a href="dashboard.html" class="nav-link">Dashboard</a>
+    <div id="auth-widget" style="display:flex;align-items:center;gap:12px;">
+      <a href="login.html" style="color:#64748b;font-family:'DM Sans',sans-serif;font-size:14px;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#e2e8f0'" onmouseout="this.style.color='#64748b'">Sign In</a>
+    </div>
   </nav>
 </header>
 
@@ -199,6 +202,38 @@
         </div>
         <img id="heatmap-img" class="heatmap-img" src="" alt="ELA Forensic Heatmap" style="display:none;" />
       </div>
+
+      <!-- ELA Color Legend -->
+      <div style="margin-top:16px;background:#0a0e1a;border:1px solid #1e2d45;border-radius:12px;padding:16px 20px;">
+        <p style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;letter-spacing:0.2em;margin:0 0 12px;">WHAT THE COLORS MEAN</p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:36px;height:20px;border-radius:6px;background:linear-gradient(90deg,#050a14,#0d1a35);border:1px solid #1e2d45;flex-shrink:0;"></div>
+            <div>
+              <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:#e2e8f0;font-weight:500;">Dark / Black</span>
+              <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:#64748b;margin-left:8px;">— Low error level → <strong style="color:#00ff88;">Original, unmodified pixels</strong>. These regions are clean.</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:36px;height:20px;border-radius:6px;background:linear-gradient(90deg,#7a4a00,#c47800);border:1px solid #1e2d45;flex-shrink:0;"></div>
+            <div>
+              <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:#e2e8f0;font-weight:500;">Yellow / Orange</span>
+              <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:#64748b;margin-left:8px;">— Medium error → <strong style="color:#ffd600;">Possible compression artifacts</strong>. Could be benign or minor edits.</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:36px;height:20px;border-radius:6px;background:linear-gradient(90deg,#8b0000,#ff2d2d);border:1px solid #1e2d45;flex-shrink:0;"></div>
+            <div>
+              <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:#e2e8f0;font-weight:500;">Bright Red / White</span>
+              <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:#64748b;margin-left:8px;">— High error level → <strong style="color:#ff4d6d;">Likely tampered region</strong>. Pasted, cloned, or edited after original save.</span>
+            </div>
+          </div>
+        </div>
+        <p style="font-family:'DM Sans',sans-serif;font-size:11px;color:#374151;margin:12px 0 0;line-height:1.5;">
+          💡 ELA works by re-saving the image at a known compression level and measuring pixel differences. Edited regions get re-compressed from a "perfect" state, appearing brighter than surrounding untouched areas.
+        </p>
+      </div>
+
       <p style="font-family:'DM Sans',sans-serif;font-size:12px;color:#64748b;margin:12px 0 0;line-height:1.6;">
         <strong style="color:#00d4ff;">ELA (Error Level Analysis)</strong> detects tampering by measuring how differently image regions compress. Red/bright areas indicate potential forgery — they were edited after the original save.
       </p>
@@ -226,8 +261,55 @@
   </p>
 </footer>
 
-<script>
+<script type="module">
+  import { onAuth, signOut, saveScanToFirestore } from './auth.js';
+
   const API_BASE = 'http://localhost:8000';
+
+  // ── Toast Notification ────────────────────────────────────────
+  function showToast(msg, color = '#00ff88') {
+    const t = document.createElement('div');
+    t.style.cssText = `position:fixed;bottom:28px;right:28px;z-index:9999;background:#161d2e;border:1px solid ${color}44;border-radius:12px;padding:14px 20px;font-family:'Space Mono',monospace;font-size:12px;color:${color};box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:fadeInUp 0.4s ease both;display:flex;align-items:center;gap:10px;`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+
+  // ── Auth State ────────────────────────────────────────
+  onAuth((user) => {
+    const widget = document.getElementById('auth-widget');
+    if (user) {
+      widget.innerHTML = `
+        <div style="position:relative;" id="user-menu-wrap">
+          <button onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:8px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:99px;padding:6px 14px 6px 8px;cursor:pointer;">
+            <img src="${user.photoURL || ''}" alt="" width="24" height="24" style="border-radius:50%;" onerror="this.style.display='none'">
+            <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:#e2e8f0;font-weight:500;">${user.displayName?.split(' ')[0] || user.email}</span>
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+          <div id="user-dropdown" style="display:none;position:absolute;top:calc(100%+8px);right:0;background:#161d2e;border:1px solid #1e2d45;border-radius:12px;padding:8px;min-width:180px;box-shadow:0 16px 48px rgba(0,0,0,0.4);z-index:200;">
+            <p style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;padding:8px 12px 4px;">${user.email}</p>
+            <div style="height:1px;background:#1e2d45;margin:4px 0;"></div>
+            <a href="dashboard.html" style="display:flex;align-items:center;gap:10px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#e2e8f0;text-decoration:none;border-radius:8px;transition:background 0.15s;" onmouseover="this.style.background='rgba(0,212,255,0.06)'" onmouseout="this.style.background='transparent'">📊 My Dashboard</a>
+            <button onclick="handleSignOut()" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#ff4d6d;background:transparent;border:none;border-radius:8px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,77,109,0.06)'" onmouseout="this.style.background='transparent'">🚪 Sign Out</button>
+          </div>
+        </div>`;
+    } else {
+      widget.innerHTML = `<a href="login.html" style="color:#64748b;font-family:'DM Sans',sans-serif;font-size:14px;text-decoration:none;">Sign In</a>`;
+    }
+  });
+  function toggleUserMenu() {
+    const dd = document.getElementById('user-dropdown');
+    if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  }
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('user-menu-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      const dd = document.getElementById('user-dropdown');
+      if (dd) dd.style.display = 'none';
+    }
+  });
+  async function handleSignOut() { await signOut(); }
+  window.handleSignOut = handleSignOut;
 
   // ── DEMO DATA ────────────────────────────────────────────────
   const DEMO_DATA = {

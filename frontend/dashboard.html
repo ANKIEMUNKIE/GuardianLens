@@ -70,15 +70,22 @@
     <a href="index.html#how-it-works" class="nav-link">How It Works</a>
     <a href="index.html#api" class="nav-link">API</a>
     <a href="dashboard.html" class="nav-link active">My Dashboard</a>
+    <div id="auth-widget" style="display:flex;align-items:center;gap:12px;">
+      <a href="login.html" style="color:#64748b;font-family:'DM Sans',sans-serif;font-size:14px;text-decoration:none;border:1px solid #1e2d45;border-radius:99px;padding:6px 16px;transition:border-color 0.2s,color 0.2s;" onmouseover="this.style.borderColor='rgba(0,212,255,0.3)';this.style.color='#e2e8f0'" onmouseout="this.style.borderColor='#1e2d45';this.style.color='#64748b'">Sign In</a>
+    </div>
   </nav>
 </header>
 
 <!-- MAIN -->
 <main style="padding:86px 48px 60px;max-width:1200px;margin:0 auto;">
 
-  <div class="fade-in" style="margin-bottom:32px;">
-    <p style="font-family:'Space Mono',monospace;font-size:11px;color:#64748b;letter-spacing:0.2em;margin:0 0 8px;">SCAN HISTORY</p>
-    <h1 style="font-family:'DM Sans',sans-serif;font-size:24px;font-weight:700;color:#e2e8f0;margin:0;">My Dashboard</h1>
+  <div class="fade-in" style="margin-bottom:32px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+    <div>
+      <p style="font-family:'Space Mono',monospace;font-size:11px;color:#64748b;letter-spacing:0.2em;margin:0 0 8px;">SCAN HISTORY</p>
+      <h1 style="font-family:'DM Sans',sans-serif;font-size:24px;font-weight:700;color:#e2e8f0;margin:0;" id="dash-title">My Dashboard</h1>
+    </div>
+    <!-- Source label -->
+    <span id="data-source-label" style="font-family:'Space Mono',monospace;font-size:10px;color:#374151;letter-spacing:0.08em;"></span>
   </div>
 
   <!-- STATS -->
@@ -168,7 +175,9 @@
   </p>
 </footer>
 
-<script>
+<script type="module">
+  import { onAuth, signOut, getUserScans } from './auth.js';
+
   const API_BASE = 'http://localhost:8000';
   const PER_PAGE = 10;
 
@@ -177,14 +186,54 @@
   let currentPage = 1;
   let activeFilter = 'ALL';
 
-  // ── INIT ─────────────────────────────────────────────────────
-  window.addEventListener('DOMContentLoaded', async () => {
-    await loadHistory();
+  // ── Auth State (UI only — avatar/name in nav) ──────────────────
+  onAuth((user) => {
+    const widget = document.getElementById('auth-widget');
+    if (user) {
+      document.getElementById('dash-title').textContent = `${user.displayName?.split(' ')[0] || 'My'}'s Dashboard`;
+      document.getElementById('data-source-label').textContent = '☁️ Signed in · ' + user.email;
+      widget.innerHTML = `
+        <div style="position:relative;" id="user-menu-wrap">
+          <button onclick="toggleUserMenu()" style="display:flex;align-items:center;gap:8px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:99px;padding:6px 14px 6px 8px;cursor:pointer;">
+            <img src="${user.photoURL || ''}" alt="" width="24" height="24" style="border-radius:50%;" onerror="this.style.display='none'">
+            <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:#e2e8f0;font-weight:500;">${user.displayName?.split(' ')[0] || user.email}</span>
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="#64748b" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+          <div id="user-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:#161d2e;border:1px solid #1e2d45;border-radius:12px;padding:8px;min-width:180px;box-shadow:0 16px 48px rgba(0,0,0,0.4);z-index:200;">
+            <p style="font-family:'Space Mono',monospace;font-size:10px;color:#64748b;padding:8px 12px 4px;">${user.email}</p>
+            <div style="height:1px;background:#1e2d45;margin:4px 0;"></div>
+            <button onclick="handleSignOut()" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:#ff4d6d;background:transparent;border:none;border-radius:8px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,77,109,0.06)'" onmouseout="this.style.background='transparent'">🚪 Sign Out</button>
+          </div>
+        </div>`;
+    } else {
+      document.getElementById('data-source-label').textContent = '🔒 Local history';
+      widget.innerHTML = `<a href="login.html" style="color:#00d4ff;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;text-decoration:none;border:1px solid #00d4ff;border-radius:99px;padding:6px 16px;transition:background 0.2s;" onmouseover="this.style.background='rgba(0,212,255,0.08)'" onmouseout="this.style.background='transparent'">SIGN IN ↗</a>`;
+    }
   });
 
-  async function loadHistory() {
+  function toggleUserMenu() {
+    const dd = document.getElementById('user-dropdown');
+    if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  }
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('user-menu-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      const dd = document.getElementById('user-dropdown');
+      if (dd) dd.style.display = 'none';
+    }
+  });
+  async function handleSignOut() { await signOut(); }
+  window.handleSignOut = handleSignOut;
+
+  // ── ALWAYS load from backend API ──────────────────────────────
+  // (Firebase = nav UI only for MVP. Scan data lives in local backend DB.)
+  window.addEventListener('DOMContentLoaded', async () => {
+    await loadHistoryFromAPI();
+  });
+
+  async function loadHistoryFromAPI() {
+    document.getElementById('scans-tbody').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;font-family:'Space Mono',monospace;font-size:13px;color:#64748b;">Loading scans...</td></tr>`;
     try {
-      // Fetch all (up to 200) for client-side pagination + stats
       const resp = await fetch(`${API_BASE}/api/history?page=1&per_page=200`);
       if (!resp.ok) throw new Error('API error');
       const data = await resp.json();
@@ -194,8 +243,8 @@
     } catch (e) {
       document.getElementById('scans-tbody').innerHTML = `
         <tr><td colspan="6" style="text-align:center;padding:40px;">
-          <p style="font-family:'Space Mono',monospace;font-size:13px;color:#ff4d6d;margin:0 0 16px;">⚠ Could not connect to backend</p>
-          <p style="font-family:'DM Sans',sans-serif;font-size:13px;color:#64748b;margin:0;">Make sure the backend is running: <code style="color:#00d4ff;">cd backend &amp;&amp; python run.py</code></p>
+          <p style="font-family:'Space Mono',monospace;font-size:13px;color:#ff4d6d;margin:0 0 8px;">⚠ Could not connect to backend</p>
+          <p style="font-family:'DM Sans',sans-serif;font-size:12px;color:#64748b;margin:0;">Make sure backend is running: <code style="color:#00d4ff;">cd backend &amp;&amp; python run.py</code></p>
         </td></tr>`;
       setStats(0, 0, 0, 0);
     }
