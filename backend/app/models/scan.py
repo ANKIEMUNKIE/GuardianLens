@@ -3,7 +3,7 @@ GuardianLens — Scan ORM Model
 """
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy import String, Integer, Float, Text, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
@@ -30,9 +30,9 @@ class Scan(Base):
     confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # JSON fields
-    breakdown: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    ela_regions: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
-    anomalies: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    breakdown: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    ela_regions: Mapped[Optional[List[Any]]] = mapped_column(JSON, nullable=True)
+    anomalies: Mapped[Optional[List[Any]]] = mapped_column(JSON, nullable=True)
     ai_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     doc_type_detected: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
