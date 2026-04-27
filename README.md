@@ -11,7 +11,7 @@
 [![Gemini](https://img.shields.io/badge/Gemini-1.5%20Flash-4285F4?logo=google&logoColor=white)](https://aistudio.google.com)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-> Upload any document → get a **forensic Trust Score**, **ELA heatmap**, and **signed PDF certificate** in under 5 seconds.
+> Upload any document → get a **forensic Trust Score**, **ELA heatmap**, and **signed PDF certificate** in under 10 seconds.
 
 ![GuardianLens Demo](frontend/assets/hero.png)
 
